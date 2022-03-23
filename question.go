@@ -8,10 +8,12 @@ import (
 
 type Question struct {
 	zoom.RandomID
-	SenderID string
-	TAID     string
-	Messages []any
-	Answers  []any
+	StudentID  string
+	TAID       string
+	Subject    string
+	CategoryID string
+	Messages   []any
+	Answers    []any
 }
 
 var (
@@ -20,10 +22,10 @@ var (
 
 func newQuestion() *Question {
 	return &Question{
-		SenderID: "",
-		TAID:     "",
-		Messages: []any{},
-		Answers:  []any{},
+		StudentID: "",
+		TAID:      "",
+		Messages:  []any{},
+		Answers:   []any{},
 	}
 }
 
@@ -39,10 +41,14 @@ func CreateQuestions() {
 	Questions = _Questions
 }
 
-func (q *Question) GetSender() *Student {
-	return GetStudent(q.SenderID)
+func (q *Question) GetStudent() *Student {
+	return GetStudent(q.StudentID)
 }
 
 func (q *Question) GetTA() *TA {
 	return GetTA(q.TAID)
+}
+
+func (q *Question) GetCategory() *Category {
+	return GetCategory(q.CategoryID)
 }

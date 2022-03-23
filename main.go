@@ -21,6 +21,8 @@ func main() {
 		}
 	}()
 
+	CreateTBFSMs()
+	CreateCategories()
 	CreateStudents()
 	CreateTAs()
 	CreateQuestions()
@@ -43,12 +45,14 @@ func main() {
 		btnHome = studentsMenu.Text("Home")
 		btnNew  = studentsMenu.Text("New Question")
 
-		btnHome2 = tasMenu.Text("Home")
-		btnNext  = tasMenu.Text("Fetch Next")
+		btnHome2             = tasMenu.Text("Home")
+		btnNext              = tasMenu.Text("Fetch Next")
+		btnCategoriesManager = tasMenu.Text("Manage Categories")
 	)
 
 	tasMenu.Reply(
 		tasMenu.Row(btnNext),
+		tasMenu.Row(btnCategoriesManager),
 		tasMenu.Row(btnHome2),
 	)
 
@@ -89,6 +93,10 @@ func main() {
 		return botNextAnswer(c, tasMenu)
 	})
 
+	b.Handle(&btnCategoriesManager, func(c tele.Context) error {
+		return botCategoriesManager(c, tasMenu)
+	})
+
 	b.Handle(tele.OnMedia, func(c tele.Context) error {
 		if IsTA(c) {
 			return botAddToAnswer(c, tasMenu)
@@ -106,6 +114,10 @@ func main() {
 	})
 
 	b.Start()
+}
+
+func botCategoriesManager(c tele.Context, menu *tele.ReplyMarkup) error {
+	return nil
 }
 
 func botStartStudents(c tele.Context, menu *tele.ReplyMarkup) error {
@@ -146,7 +158,7 @@ func botNewQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 	q := newQuestion()
-	q.SenderID = userid
+	q.StudentID = userid
 	if err := Questions.Save(q); err != nil {
 		return err
 	}
@@ -167,7 +179,7 @@ func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 		return c.Send("Error!", menu)
 	}
 	q := newQuestion()
-	q.SenderID = userid
+	q.StudentID = userid
 	q.SetModelID(t.CurrentQAID)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
 		return c.Send("Error!", menu)
@@ -192,7 +204,7 @@ func botAddToAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		return c.Send("Error!", menu)
 	}
 	q := newQuestion()
-	q.SenderID = userid
+	q.StudentID = userid
 	q.SetModelID(ta.CurrentQAID)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
 		return c.Send("Error!", menu)
@@ -259,7 +271,7 @@ func botCommitQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 		return c.Send("Error!", menu)
 	}
 	q := newQuestion()
-	q.SenderID = userid
+	q.StudentID = userid
 	q.SetModelID(t.CurrentQAID)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
 		return c.Send("Error!", menu)
@@ -310,7 +322,7 @@ func botCommitAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 
 	// Now, time to dispatch this answer to its questioner!
 	ta.CurrentQAID = ""
-	senderIntID, err := c.Bot().ChatByID(IntID(q.SenderID))
+	senderIntID, err := c.Bot().ChatByID(IntID(q.StudentID))
 	if err != nil {
 		return err
 	}

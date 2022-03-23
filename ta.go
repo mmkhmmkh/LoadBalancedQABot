@@ -8,11 +8,13 @@ import (
 )
 
 type TA struct {
-	UserID      string
-	Name        string
-	Probability int
-	CurrentQAID string
-	Questions   []string
+	UserID        string
+	Name          string
+	Probability   int
+	CurrentQAID   string
+	AnsweredCount int
+	AssignedCount int
+	Questions     []string
 }
 
 var (
@@ -29,11 +31,13 @@ func (ta *TA) SetModelID(modelID string) {
 
 func newTA(userid string) *TA {
 	return &TA{
-		UserID:      userid,
-		Name:        "",
-		Probability: 100,
-		CurrentQAID: "",
-		Questions:   []string{},
+		UserID:        userid,
+		Name:          "",
+		Probability:   100,
+		CurrentQAID:   "",
+		AnsweredCount: 0,
+		AssignedCount: 0,
+		Questions:     []string{},
 	}
 }
 
@@ -48,29 +52,29 @@ func CreateTAs() {
 	TAs = _TAs
 }
 
-func DispatchTA() (*TA, error) {
+func DispatchTA() (*TA, int, error) {
 	count, err := TAs.Count()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	index := rand.Intn(count)
 	var tas []*TA
 	query := TAs.NewQuery().Offset(uint(index)).Limit(1)
 	if err := query.Run(&tas); err != nil || len(tas) != 1 {
-		return nil, err
+		return nil, 0, err
 	}
 	selectedTA := tas[0]
 	for rand.Intn(100) > selectedTA.Probability {
 		index = rand.Intn(count)
 		query = TAs.NewQuery().Offset(uint(index)).Limit(1)
 		if err := query.Run(&tas); err != nil || len(tas) != 1 {
-			return nil, err
+			return nil, 0, err
 		}
 		selectedTA = tas[0]
 	}
 
-	return selectedTA, nil
+	return selectedTA, count, nil
 }
 
 func TryGetTA(c tele.Context, menu *tele.ReplyMarkup) (*TA, error) {

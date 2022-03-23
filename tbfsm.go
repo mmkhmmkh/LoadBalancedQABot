@@ -11,6 +11,7 @@ const (
 	StateStart State = iota
 	StateRegistrationGetName
 	StateRegistrationGetCode
+	StateRegistrationGetProb
 	StateMainMenu
 	StateNewQuestionStart
 	StateNewQuestionContinue
@@ -18,6 +19,7 @@ const (
 	StateAnswerStart
 	StateAnswerContinue
 	StateAnswerCommit
+	StateAnswerSkip
 	StateFatalError
 )
 

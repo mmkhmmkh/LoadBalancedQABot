@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/albrow/zoom"
 	tele "gopkg.in/telebot.v3"
 	"log"
@@ -22,7 +23,7 @@ func main() {
 	}()
 
 	CreateTBFSMs()
-	CreateCategories()
+	//CreateCategories()
 	CreateStudents()
 	CreateTAs()
 	CreateQuestions()
@@ -45,14 +46,12 @@ func main() {
 		btnHome = studentsMenu.Text("Home")
 		btnNew  = studentsMenu.Text("New Question")
 
-		btnHome2             = tasMenu.Text("Home")
-		btnNext              = tasMenu.Text("Fetch Next")
-		btnCategoriesManager = tasMenu.Text("Manage Categories")
+		btnHome2 = tasMenu.Text("Home")
+		btnNext  = tasMenu.Text("Fetch Next")
 	)
 
 	tasMenu.Reply(
 		tasMenu.Row(btnNext),
-		tasMenu.Row(btnCategoriesManager),
 		tasMenu.Row(btnHome2),
 	)
 
@@ -88,6 +87,14 @@ func main() {
 		}
 	})
 
+	b.Handle("/skip", func(c tele.Context) error {
+		if IsTA(c) {
+			return botSkipAnswer(c, tasMenu)
+		} else {
+			return c.Send("Error!", studentsMenu)
+		}
+	})
+
 	b.Handle(&btnHome, func(c tele.Context) error {
 		if c.Message().Payload == os.Getenv("TA_PAYLOAD") || IsTA(c) {
 			return botStartTAs(c, tasMenu)
@@ -104,10 +111,6 @@ func main() {
 		return botNextAnswer(c, tasMenu)
 	})
 
-	b.Handle(&btnCategoriesManager, func(c tele.Context) error {
-		return botCategoriesManager(c, tasMenu)
-	})
-
 	b.Handle(tele.OnMedia, func(c tele.Context) error {
 		if IsTA(c) {
 			return botAddToAnswer(c, tasMenu)
@@ -118,53 +121,160 @@ func main() {
 
 	b.Handle(tele.OnText, func(c tele.Context) error {
 		if IsTA(c) {
-			return botAddToAnswer(c, tasMenu)
+			if c.Get("tbfsm").(*TBFSM).State == StateRegistrationGetName {
+				return botGetNameTAs(c, tasMenu)
+			} else if c.Get("tbfsm").(*TBFSM).State == StateRegistrationGetProb {
+				return botGetProbTAs(c, tasMenu)
+			} else {
+				return botAddToAnswer(c, tasMenu)
+			}
 		} else {
-			return botAddToQuestion(c, studentsMenu)
+			if c.Get("tbfsm").(*TBFSM).State == StateRegistrationGetName {
+				return botGetNameStudents(c, studentsMenu)
+			} else if c.Get("tbfsm").(*TBFSM).State == StateRegistrationGetCode {
+				return botGetCodeStudents(c, studentsMenu)
+			} else {
+				return botAddToQuestion(c, studentsMenu)
+			}
 		}
 	})
 
 	b.Start()
 }
 
-func botCategoriesManager(c tele.Context, menu *tele.ReplyMarkup) error {
-	return nil
+func botGetCodeStudents(c tele.Context, menu *tele.ReplyMarkup) error {
+
+	userid := HexID(c.Sender())
+	student := GetStudent(userid)
+	if student == nil {
+		return c.Send("Error!")
+	}
+
+	student.Code = strings.TrimSpace(c.Message().Text)
+
+	if err := Students.SaveFields([]string{"Code"}, student); err != nil {
+		return err
+	}
+
+	return botStartStudents(c, menu)
+
 }
 
-func botStartStudents(c tele.Context, menu *tele.ReplyMarkup) error {
-	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateStart); err != nil {
+func botGetProbTAs(c tele.Context, menu *tele.ReplyMarkup) error {
+
+	userid := HexID(c.Sender())
+	ta := GetTA(userid)
+	if ta == nil {
+		return c.Send("Error!")
+	}
+
+	prob, _ := strconv.ParseInt(strings.TrimSpace(c.Message().Text), 10, 32)
+
+	if prob <= 0 || prob > 100 {
+		return c.Send("Error!")
+	}
+
+	ta.Probability = int(prob)
+
+	if err := TAs.SaveFields([]string{"Probability"}, ta); err != nil {
+		return err
+	}
+
+	return botStartTAs(c, menu)
+}
+
+func botGetNameStudents(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateRegistrationGetCode); err != nil {
 		return err
 	}
 
 	userid := HexID(c.Sender())
-	t := newStudent(userid)
-	if _, err := Students.Delete(userid); err != nil {
+	student := GetStudent(userid)
+	if student == nil {
+		return c.Send("Error!")
+	}
+
+	student.Name = strings.TrimSpace(c.Message().Text)
+
+	if err := Students.SaveFields([]string{"Name"}, student); err != nil {
 		return err
 	}
-	t.Name = strings.TrimSpace(c.Sender().FirstName + " " + c.Sender().LastName)
-	err := Students.Save(t)
-	if err != nil {
+
+	return c.Send("Enter your student id.")
+
+}
+
+func botGetNameTAs(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateRegistrationGetProb); err != nil {
 		return err
+	}
+
+	userid := HexID(c.Sender())
+	ta := GetTA(userid)
+	if ta == nil {
+		return c.Send("Error!")
+	}
+
+	ta.Name = strings.TrimSpace(c.Message().Text)
+
+	if err := TAs.SaveFields([]string{"Name"}, ta); err != nil {
+		return err
+	}
+
+	return c.Send("Enter your dispatch probability percentage (from 1-100).")
+}
+
+func botStartStudents(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateMainMenu); err != nil {
+		return err
+	}
+
+	userid := HexID(c.Sender())
+	student := GetStudent(userid)
+	if student == nil {
+		t := newStudent(userid)
+		//t.Name = strings.TrimSpace(c.Sender().FirstName + " " + c.Sender().LastName)
+		err := Students.Save(t)
+		if err != nil {
+			return err
+		}
+		student = t
+	}
+
+	if student.Name == "" {
+		// Lets register!
+		if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateRegistrationGetName); err != nil {
+			return err
+		}
+		return c.Send("Enter your complete name.")
 	}
 
 	return c.Send("Select one option.", menu)
 }
 
 func botStartTAs(c tele.Context, menu *tele.ReplyMarkup) error {
-	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateStart); err != nil {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateMainMenu); err != nil {
 		return err
 	}
 
 	userid := HexID(c.Sender())
-
-	t := newTA(userid)
-	if _, err := TAs.Delete(userid); err != nil {
-		return err
+	ta := GetTA(userid)
+	if ta == nil {
+		t := newTA(userid)
+		//t.Name = strings.TrimSpace(c.Sender().FirstName + " " + c.Sender().LastName)
+		err := TAs.Save(t)
+		if err != nil {
+			return err
+		}
+		ta = t
 	}
-	t.Name = strings.TrimSpace(c.Sender().FirstName + " " + c.Sender().LastName)
-	err := TAs.Save(t)
-	if err != nil {
-		return err
+
+	if ta.Name == "" {
+		// Lets register!
+		if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateRegistrationGetName); err != nil {
+			return err
+		}
+		return c.Send("Enter your complete name.")
 	}
 
 	return c.Send("Select one option.", menu)
@@ -189,14 +299,10 @@ func botNewQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 	if err := Students.SaveFields([]string{"CurrentQAID"}, t); err != nil {
 		return err
 	}
-	return c.Send("Enter your question.", menu)
+	return c.Send("Enter your question context.")
 }
 
 func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
-	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateNewQuestionContinue); err != nil {
-		return err
-	}
-
 	userid := HexID(c.Sender())
 	t, err := TryGetStudent(c, menu)
 	if t == nil || err != nil {
@@ -212,13 +318,27 @@ func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 		return c.Send("Error!", menu)
 	}
 
-	q.Messages = append(q.Messages, c.Message())
+	if c.Get("tbfsm").(*TBFSM).State == StateNewQuestionStart {
+		if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateNewQuestionContinue); err != nil {
+			return err
+		}
+		q.Context = strings.TrimSpace(c.Message().Text)
 
-	if err := Questions.SaveFields([]string{"Messages"}, q); err != nil {
-		return err
+		if err := Questions.SaveFields([]string{"Context"}, q); err != nil {
+			return err
+		}
+
+		return c.Send("Now, Send your question.")
+	} else {
+		q.Messages = append(q.Messages, c.Message())
+
+		if err := Questions.SaveFields([]string{"Messages"}, q); err != nil {
+			return err
+		}
+
+		return c.Send("Send more, or send /done to finish...")
 	}
 
-	return c.Send("Send more, or send /done to finish...")
 }
 
 func botAddToAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
@@ -281,6 +401,11 @@ func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 
+	student := q.GetStudent()
+	if err := c.Send(fmt.Sprintf("_From:_ %v (%v)\n_Context:_ %v", student.Name, student.Code, q.Context)); err != nil {
+		return err
+	}
+
 	for _, m := range q.Messages {
 		switch obj := m.(type) {
 		case *tele.Message:
@@ -295,7 +420,7 @@ func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 
 	}
 
-	return c.Send("Answer this question now!")
+	return c.Send("Answer this question now, or send /skip to pass this question to another TA!")
 
 }
 
@@ -320,7 +445,7 @@ func botCommitQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 	}
 
 	// Now, time to dispatch this QA!
-	ta, err := DispatchTA()
+	ta, _, err := DispatchTA()
 	if err != nil {
 		return err
 	}
@@ -333,11 +458,21 @@ func botCommitQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 	t.Questions = append(t.Questions, q.ModelID())
 	t.CurrentQAID = ""
 	ta.Questions = append(ta.Questions, q.ModelID())
+	ta.AssignedCount++
 
 	if err := Students.SaveFields([]string{"Questions", "CurrentQAID"}, t); err != nil {
 		return err
 	}
-	if err := TAs.SaveFields([]string{"Questions"}, ta); err != nil {
+	if err := TAs.SaveFields([]string{"Questions", "AssignedCount"}, ta); err != nil {
+		return err
+	}
+
+	taIntID, err := c.Bot().ChatByID(IntID(ta.UserID))
+	if err != nil {
+		return err
+	}
+
+	if _, err := c.Bot().Send(taIntID, "A student is waiting for your answer."); err != nil {
 		return err
 	}
 
@@ -346,6 +481,65 @@ func botCommitQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 	}
 
 	return botStartStudents(c, menu)
+}
+
+func botSkipAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateAnswerSkip); err != nil {
+		return err
+	}
+
+	ta, err := TryGetTA(c, menu)
+	if ta == nil || err != nil {
+		return err
+	}
+	if ta.CurrentQAID == "" {
+		return c.Send("Error!", menu)
+	}
+	q := newQuestion()
+	q.SetModelID(ta.CurrentQAID)
+	if err := Questions.Find(q.ModelID(), q); err != nil {
+		return c.Send("Error!", menu)
+	}
+
+	// Skip this QA for current TA...
+	ta.CurrentQAID = ""
+	if err := TAs.SaveFields([]string{"CurrentQAID"}, ta); err != nil {
+		return err
+	}
+
+	// Now, time to redispatch this QA!
+	newTA, count, err := DispatchTA()
+	if err != nil {
+		return err
+	}
+
+	// Make sure the newly selected TA is not the current one!
+	for count > 1 && newTA.UserID == ta.UserID {
+		newTA, _, err = DispatchTA()
+		if err != nil {
+			return err
+		}
+	}
+
+	q.TAID = newTA.UserID
+
+	if err := Questions.SaveFields([]string{"TAID"}, q); err != nil {
+		return err
+	}
+
+	newTA.Questions = append(newTA.Questions, q.ModelID())
+	newTA.AssignedCount++
+
+	if err := TAs.SaveFields([]string{"Questions", "AssignedCount"}, newTA); err != nil {
+		return err
+	}
+
+	if err := c.Send("Skipped!"); err != nil {
+		return err
+	}
+
+	return botStartTAs(c, menu)
+
 }
 
 func botCommitAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
@@ -368,10 +562,16 @@ func botCommitAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 
 	// Now, time to dispatch this answer to its questioner!
 	ta.CurrentQAID = ""
+	ta.AnsweredCount++
 	senderIntID, err := c.Bot().ChatByID(IntID(q.StudentID))
 	if err != nil {
 		return err
 	}
+
+	if _, err := c.Bot().Send(senderIntID, fmt.Sprintf("A TA has been answered your question:\n_Context:_ %v", q.Context)); err != nil {
+		return err
+	}
+
 	for _, m := range q.Answers {
 		switch obj := m.(type) {
 		case *tele.Message:
@@ -385,7 +585,7 @@ func botCommitAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		}
 	}
 
-	if err := TAs.SaveFields([]string{"CurrentQAID"}, ta); err != nil {
+	if err := TAs.SaveFields([]string{"CurrentQAID", "AnsweredCount"}, ta); err != nil {
 		return err
 	}
 

@@ -8,12 +8,11 @@ import (
 
 type Question struct {
 	zoom.RandomID
-	StudentID  string
-	TAID       string
-	Subject    string
-	CategoryID string
-	Messages   []any
-	Answers    []any
+	StudentID string
+	TAID      string
+	Context   string
+	Messages  []any
+	Answers   []any
 }
 
 var (
@@ -49,6 +48,7 @@ func (q *Question) GetTA() *TA {
 	return GetTA(q.TAID)
 }
 
-func (q *Question) GetCategory() *Category {
-	return GetCategory(q.CategoryID)
-}
+//
+//func (q *Question) GetCategory() *Category {
+//	return GetCategory(q.CategoryID)
+//}

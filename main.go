@@ -61,6 +61,17 @@ func main() {
 		studentsMenu.Row(btnHome),
 	)
 
+	b.Use(func(hf tele.HandlerFunc) tele.HandlerFunc {
+		return func(c tele.Context) error {
+			tbfsm, err := ForceGetTBFSM(c)
+			if err != nil {
+				return err
+			}
+			c.Set("tbfsm", tbfsm)
+			return hf(c)
+		}
+	})
+
 	b.Handle("/start", func(c tele.Context) error {
 		if c.Message().Payload == os.Getenv("TA_PAYLOAD") || IsTA(c) {
 			return botStartTAs(c, tasMenu)
@@ -121,6 +132,10 @@ func botCategoriesManager(c tele.Context, menu *tele.ReplyMarkup) error {
 }
 
 func botStartStudents(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateStart); err != nil {
+		return err
+	}
+
 	userid := HexID(c.Sender())
 	t := newStudent(userid)
 	if _, err := Students.Delete(userid); err != nil {
@@ -136,6 +151,10 @@ func botStartStudents(c tele.Context, menu *tele.ReplyMarkup) error {
 }
 
 func botStartTAs(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateStart); err != nil {
+		return err
+	}
+
 	userid := HexID(c.Sender())
 
 	t := newTA(userid)
@@ -152,6 +171,10 @@ func botStartTAs(c tele.Context, menu *tele.ReplyMarkup) error {
 }
 
 func botNewQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateNewQuestionStart); err != nil {
+		return err
+	}
+
 	userid := HexID(c.Sender())
 	t, err := TryGetStudent(c, menu)
 	if t == nil || err != nil {
@@ -170,6 +193,10 @@ func botNewQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 }
 
 func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateNewQuestionContinue); err != nil {
+		return err
+	}
+
 	userid := HexID(c.Sender())
 	t, err := TryGetStudent(c, menu)
 	if t == nil || err != nil {
@@ -195,6 +222,10 @@ func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 }
 
 func botAddToAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateAnswerContinue); err != nil {
+		return err
+	}
+
 	userid := HexID(c.Sender())
 	ta, err := TryGetTA(c, menu)
 	if ta == nil || err != nil {
@@ -220,13 +251,20 @@ func botAddToAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 }
 
 func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateAnswerStart); err != nil {
+		return err
+	}
+
 	ta, err := TryGetTA(c, menu)
 	if ta == nil || err != nil {
 		return err
 	}
 
 	if len(ta.Questions) == 0 {
-		return c.Send("No more questions available.", menu)
+		if err := c.Send("No more questions available."); err != nil {
+			return err
+		}
+		return botStartTAs(c, menu)
 	}
 
 	var nextQ string
@@ -262,6 +300,10 @@ func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 }
 
 func botCommitQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateNewQuestionCommit); err != nil {
+		return err
+	}
+
 	userid := HexID(c.Sender())
 	t, err := TryGetStudent(c, menu)
 	if t == nil || err != nil {
@@ -307,6 +349,10 @@ func botCommitQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 }
 
 func botCommitAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
+	if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateAnswerCommit); err != nil {
+		return err
+	}
+
 	ta, err := TryGetTA(c, menu)
 	if ta == nil || err != nil {
 		return err

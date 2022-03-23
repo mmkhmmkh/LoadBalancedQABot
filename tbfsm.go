@@ -56,29 +56,29 @@ func CreateTBFSMs() {
 	TBFSMs = _TBFSMs
 }
 
-func ForceGetTBFSM(c tele.Context, menu *tele.ReplyMarkup) (*TBFSM, error) {
+func ForceGetTBFSM(c tele.Context) (*TBFSM, error) {
 	userid := HexID(c.Sender())
 	tbfsm := newTBFSM(userid)
 	if err := TBFSMs.Find(userid, tbfsm); err != nil {
 		tbfsm = newTBFSM(userid)
 		if err := TBFSMs.Save(tbfsm); err != nil {
-			return nil, c.Send("Error!", menu)
+			return nil, err
 		}
 		return tbfsm, nil
 	}
 	return tbfsm, nil
 }
 
-func SetTBFSMState(state State, c tele.Context, menu *tele.ReplyMarkup) error {
-	tbfsm, err := ForceGetTBFSM(c, menu)
+func SetTBFSMState(state State, c tele.Context) error {
+	tbfsm, err := ForceGetTBFSM(c)
 	if err != nil {
-		return c.Send("Error!", menu)
+		return err
 	}
 
 	tbfsm.State = state
 
 	if err := TBFSMs.SaveFields([]string{"State"}, tbfsm); err != nil {
-		return c.Send("Error!", menu)
+		return err
 	}
 
 	return nil

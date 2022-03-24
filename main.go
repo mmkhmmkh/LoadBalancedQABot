@@ -29,8 +29,9 @@ func main() {
 	CreateQuestions()
 
 	pref := tele.Settings{
-		Token:  os.Getenv("TOKEN"),
-		Poller: &tele.LongPoller{Timeout: 10 * time.Second},
+		Token:     os.Getenv("TOKEN"),
+		Poller:    &tele.LongPoller{Timeout: 10 * time.Second},
+		ParseMode: tele.ModeMarkdownV2,
 	}
 
 	b, err := tele.NewBot(pref)
@@ -91,7 +92,7 @@ func main() {
 		if IsTA(c) {
 			return botSkipAnswer(c, tasMenu)
 		} else {
-			return c.Send("Error!", studentsMenu)
+			return c.Send("Error\\!", studentsMenu)
 		}
 	})
 
@@ -147,7 +148,7 @@ func botGetCodeStudents(c tele.Context, menu *tele.ReplyMarkup) error {
 	userid := HexID(c.Sender())
 	student := GetStudent(userid)
 	if student == nil {
-		return c.Send("Error!")
+		return c.Send("Error\\!")
 	}
 
 	student.Code = strings.TrimSpace(c.Message().Text)
@@ -165,13 +166,13 @@ func botGetProbTAs(c tele.Context, menu *tele.ReplyMarkup) error {
 	userid := HexID(c.Sender())
 	ta := GetTA(userid)
 	if ta == nil {
-		return c.Send("Error!")
+		return c.Send("Error\\!")
 	}
 
 	prob, _ := strconv.ParseInt(strings.TrimSpace(c.Message().Text), 10, 32)
 
 	if prob <= 0 || prob > 100 {
-		return c.Send("Error!")
+		return c.Send("Error\\!")
 	}
 
 	ta.Probability = int(prob)
@@ -191,7 +192,7 @@ func botGetNameStudents(c tele.Context, menu *tele.ReplyMarkup) error {
 	userid := HexID(c.Sender())
 	student := GetStudent(userid)
 	if student == nil {
-		return c.Send("Error!")
+		return c.Send("Error\\!")
 	}
 
 	student.Name = strings.TrimSpace(c.Message().Text)
@@ -200,7 +201,7 @@ func botGetNameStudents(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 
-	return c.Send("Enter your student id.")
+	return c.Send("Enter your student id\\.")
 
 }
 
@@ -212,7 +213,7 @@ func botGetNameTAs(c tele.Context, menu *tele.ReplyMarkup) error {
 	userid := HexID(c.Sender())
 	ta := GetTA(userid)
 	if ta == nil {
-		return c.Send("Error!")
+		return c.Send("Error\\!")
 	}
 
 	ta.Name = strings.TrimSpace(c.Message().Text)
@@ -221,7 +222,7 @@ func botGetNameTAs(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 
-	return c.Send("Enter your dispatch probability percentage (from 1-100).")
+	return c.Send("Enter your dispatch probability percentage \\(from 1\\-100\\)\\.")
 }
 
 func botStartStudents(c tele.Context, menu *tele.ReplyMarkup) error {
@@ -246,10 +247,10 @@ func botStartStudents(c tele.Context, menu *tele.ReplyMarkup) error {
 		if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateRegistrationGetName); err != nil {
 			return err
 		}
-		return c.Send("Enter your complete name.")
+		return c.Send("Enter your complete name\\.")
 	}
 
-	return c.Send("Select one option.", menu)
+	return c.Send("Select one option\\.", menu)
 }
 
 func botStartTAs(c tele.Context, menu *tele.ReplyMarkup) error {
@@ -274,10 +275,10 @@ func botStartTAs(c tele.Context, menu *tele.ReplyMarkup) error {
 		if err := c.Get("tbfsm").(*TBFSM).SetTBFSMState(StateRegistrationGetName); err != nil {
 			return err
 		}
-		return c.Send("Enter your complete name.")
+		return c.Send("Enter your complete name\\.")
 	}
 
-	return c.Send("Select one option.", menu)
+	return c.Send("Select one option\\.", menu)
 }
 
 func botNewQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
@@ -299,7 +300,7 @@ func botNewQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 	if err := Students.SaveFields([]string{"CurrentQAID"}, t); err != nil {
 		return err
 	}
-	return c.Send("Enter your question context.")
+	return c.Send("Enter your question context\\.")
 }
 
 func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
@@ -309,13 +310,13 @@ func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 	if t.CurrentQAID == "" {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 	q := newQuestion()
 	q.StudentID = userid
 	q.SetModelID(t.CurrentQAID)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 
 	if c.Get("tbfsm").(*TBFSM).State == StateNewQuestionStart {
@@ -328,7 +329,7 @@ func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 			return err
 		}
 
-		return c.Send("Now, Send your question.")
+		return c.Send("Now, Send your question\\.")
 	} else {
 		q.Messages = append(q.Messages, c.Message())
 
@@ -336,7 +337,7 @@ func botAddToQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 			return err
 		}
 
-		return c.Send("Send more, or send /done to finish...")
+		return c.Send("Send more, or send /done to finish\\.\\.\\.")
 	}
 
 }
@@ -352,13 +353,13 @@ func botAddToAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 	if ta.CurrentQAID == "" {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 	q := newQuestion()
 	q.StudentID = userid
 	q.SetModelID(ta.CurrentQAID)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 
 	q.Answers = append(q.Answers, c.Message())
@@ -367,7 +368,7 @@ func botAddToAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 
-	return c.Send("Send more, or send /done to finish...")
+	return c.Send("Send more, or send /done to finish\\.\\.\\.")
 }
 
 func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
@@ -381,7 +382,7 @@ func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 	}
 
 	if len(ta.Questions) == 0 {
-		if err := c.Send("No more questions available."); err != nil {
+		if err := c.Send("No more questions available\\."); err != nil {
 			return err
 		}
 		return botStartTAs(c, menu)
@@ -392,7 +393,7 @@ func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 	q := newQuestion()
 	q.SetModelID(nextQ)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 
 	ta.CurrentQAID = nextQ
@@ -402,7 +403,7 @@ func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 	}
 
 	student := q.GetStudent()
-	if err := c.Send(fmt.Sprintf("_From:_ %v (%v)\n_Context:_ %v", student.Name, student.Code, q.Context)); err != nil {
+	if err := c.Send(fmt.Sprintf("_From:_ %v \\(%v\\)\n_Context:_ %v", student.Name, student.Code, q.Context)); err != nil {
 		return err
 	}
 
@@ -420,7 +421,7 @@ func botNextAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 
 	}
 
-	return c.Send("Answer this question now, or send /skip to pass this question to another TA!")
+	return c.Send("Answer this question now, or send /skip to pass this question to another TA\\!")
 
 }
 
@@ -435,13 +436,13 @@ func botCommitQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 	if t.CurrentQAID == "" {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 	q := newQuestion()
 	q.StudentID = userid
 	q.SetModelID(t.CurrentQAID)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 
 	// Now, time to dispatch this QA!
@@ -472,11 +473,11 @@ func botCommitQuestion(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 
-	if _, err := c.Bot().Send(taIntID, "A student is waiting for your answer."); err != nil {
+	if _, err := c.Bot().Send(taIntID, "A student is waiting for your answer\\."); err != nil {
 		return err
 	}
 
-	if err := c.Send("Done!"); err != nil {
+	if err := c.Send("Done\\!"); err != nil {
 		return err
 	}
 
@@ -493,12 +494,12 @@ func botSkipAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 	if ta.CurrentQAID == "" {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 	q := newQuestion()
 	q.SetModelID(ta.CurrentQAID)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 
 	// Skip this QA for current TA...
@@ -534,7 +535,16 @@ func botSkipAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 
-	if err := c.Send("Skipped!"); err != nil {
+	newTAIntID, err := c.Bot().ChatByID(IntID(newTA.UserID))
+	if err != nil {
+		return err
+	}
+
+	if _, err := c.Bot().Send(newTAIntID, "A student is waiting for your answer\\."); err != nil {
+		return err
+	}
+
+	if err := c.Send("Skipped\\!"); err != nil {
 		return err
 	}
 
@@ -552,12 +562,12 @@ func botCommitAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 	if ta.CurrentQAID == "" {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 	q := newQuestion()
 	q.SetModelID(ta.CurrentQAID)
 	if err := Questions.Find(q.ModelID(), q); err != nil {
-		return c.Send("Error!", menu)
+		return c.Send("Error\\!", menu)
 	}
 
 	// Now, time to dispatch this answer to its questioner!
@@ -589,7 +599,7 @@ func botCommitAnswer(c tele.Context, menu *tele.ReplyMarkup) error {
 		return err
 	}
 
-	if err := c.Send("Done!"); err != nil {
+	if err := c.Send("Done\\!"); err != nil {
 		return err
 	}
 
